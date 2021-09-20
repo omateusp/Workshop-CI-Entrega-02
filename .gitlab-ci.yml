@@ -1,0 +1,45 @@
+stages:
+  - build
+  - test
+
+image: docker:latest
+
+services:
+  - docker:dind
+
+variables:
+  FRONTEND_IMAGE_TAG: ${USER}/${PROJECT_NAME}-frontend:$CI_COMMIT_SHA
+  FRONTEND_IMAGE_LATEST: ${USER}/${PROJECT_NAME}-frontend:latest
+  BACKEND_IMAGE_TAG: ${USER}/${PROJECT_NAME}-backend:$CI_COMMIT_SHA
+  BACKEND_IMAGE_LATEST: ${USER}/${PROJECT_NAME}-backend:latest
+
+backend_build:
+  stage: build
+  before_script:
+    - echo "$PASSWORD" | docker login -u "$USER" --password-stdin
+    - docker pull $BACKEND_IMAGE_LATEST || true
+  script:
+    - docker build --cache-from $BACKEND_IMAGE_LATEST -t $BACKEND_IMAGE_TAG -t $BACKEND_IMAGE_LATEST ./backend/
+    - docker push $BACKEND_IMAGE_TAG
+    - docker push $BACKEND_IMAGE_LATEST
+
+frontend_build:
+  stage: build
+  before_script:
+    - echo "$PASSWORD" | docker login -u "$USER" --password-stdin
+    - docker pull $FRONTEND_IMAGE_LATEST || true
+  script:
+    - docker build --cache-from $FRONTEND_IMAGE_LATEST -t $FRONTEND_IMAGE_TAG -t $FRONTEND_IMAGE_LATEST ./frontend/
+    - docker push $FRONTEND_IMAGE_TAG
+    - docker push $FRONTEND_IMAGE_LATEST
+
+backend_test:
+  stage: test
+  script:
+  - docker-compose run --entrypoint "npm run unittest" backend
+
+
+frontend_test:
+  stage: test
+  script:
+  - docker-compose run --entrypoint "npm run test" frontend
