@@ -7,16 +7,20 @@ image: docker:latest
 services:
   - docker:dind
 
+
+# Criando duas tags para não perder versões anteriores.
 variables:
   FRONTEND_IMAGE_TAG: ${USER}/${PROJECT_NAME}-frontend:$CI_COMMIT_SHA
   FRONTEND_IMAGE_LATEST: ${USER}/${PROJECT_NAME}-frontend:latest
   BACKEND_IMAGE_TAG: ${USER}/${PROJECT_NAME}-backend:$CI_COMMIT_SHA
   BACKEND_IMAGE_LATEST: ${USER}/${PROJECT_NAME}-backend:latest
 
+before_script:
+  - echo "$PASSWORD" | docker login -u "$USER" --password-stdin
+
 backend_build:
   stage: build
   before_script:
-    - echo "$PASSWORD" | docker login -u "$USER" --password-stdin
     - docker pull $BACKEND_IMAGE_LATEST || true
   script:
     - docker build --cache-from $BACKEND_IMAGE_LATEST -t $BACKEND_IMAGE_TAG -t $BACKEND_IMAGE_LATEST ./backend/
@@ -26,7 +30,6 @@ backend_build:
 frontend_build:
   stage: build
   before_script:
-    - echo "$PASSWORD" | docker login -u "$USER" --password-stdin
     - docker pull $FRONTEND_IMAGE_LATEST || true
   script:
     - docker build --cache-from $FRONTEND_IMAGE_LATEST -t $FRONTEND_IMAGE_TAG -t $FRONTEND_IMAGE_LATEST ./frontend/
@@ -36,10 +39,12 @@ frontend_build:
 backend_test:
   stage: test
   script:
-  - docker-compose run --entrypoint "npm run unittest" backend
+  - docker pull $BACKEND_IMAGE_TAG
+  - docker run --entrypoint "npm" "$BACKEND_IMAGE_TAG" run unittest
 
 
 frontend_test:
   stage: test
   script:
-  - docker-compose run --entrypoint "npm run test" frontend
+  - docker pull $FRONTEND_IMAGE_TAG
+  - docker run --entrypoint "npm" "$FRONTEND_IMAGE_TAG" run test
